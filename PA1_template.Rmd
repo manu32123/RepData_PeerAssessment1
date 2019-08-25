@@ -1,25 +1,130 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Project 1"
+author: "Manu"
+date: "25 8 2019"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+## 1. Load data and packages
+
+As a first step, I load the data and the required packages.
+
+```{r load}
+library(gridExtra)
+library(ggplot2)
+
+if (!file.exists("activity.csv") )
+    {
+     url <- 'https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip'  
+     download.file(url,destfile='repdata%2Fdata%2Factivity.zip',mode='wb')  
+     unzip('repdata%2Fdata%2Factivity.zip')
+    }
+df <- read.csv("activity.csv")  
+```
+
+Now the data is ready and each question from the assignment can be answered step by step.
+
+## 2. Histogram of the total number of steps taken each day
+
+```{r total}
+total <- tapply(df$steps, df$date, sum, na.rm=T)
+head(total)
+hist(total, xlab = "steps per day", main = "Total steps per day")
+```
+
+## 3. Mean and median number of steps taken each day
+
+```{r mm}
+tmean <- mean(total)
+tmedian <- median(total)
+tmean
+tmedian
+```
 
 
+## 4. Time series plot of the average number of steps taken
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
+```{r ts}
+tstotal <- tapply(df$steps, df$interval, mean, na.rm=T)
+plot(tstotal ~ unique(df$interval), type="l", xlab = "5 min intervals")
+```
 
 
+## 5. The 5-minute interval that, on average, contains the maximum number of steps
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r max}
+max5 <- tstotal[which.max(tstotal)]
+max5
+```
+
+## 6. Code to describe and show a strategy for imputing missing data
+
+```{r missing1}
+summary(df)
+table(is.na(df) == TRUE)
+```
+For 2304 observations the steps are missing.
+
+```{r missing2}
+dfcomplete <- df
+for (i in 1:nrow(dfcomplete)){
+    if(is.na(dfcomplete$steps[i])){
+        dfcomplete$steps[i]<- tstotal[[as.character(dfcomplete[i, "interval"])]]
+    }
+}
+```
+
+Missing values are replaced with the corresponding mean value from the time series object. 
+
+## 7. Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r total2}
+total2 <- tapply(dfcomplete$steps, dfcomplete$date, sum, na.rm=T)
+head(total2)
+hist(total2, xlab = "steps per day", main = "Total steps per day complete")
+```
+
+## 8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+
+```{r functions}
+is_weekday <- function(z) {
+  if (inherits(z, "zoo")) 
+    z <- time(z)
+  z <- as.POSIXlt(z)$wday
+  z > 0L & z < 6L
+}
+
+
+is_weekend <- function(z) {
+  if (inherits(z, "zoo")) 
+    z <- time(z)
+  z <- as.POSIXlt(z)$wday
+  z < 1L | z > 5L
+}
+dfcomplete$weekend <- factor(is_weekend(dfcomplete$date), levels = c(TRUE, FALSE), labels = c("yes", "no"))
+
+weekend <- subset(dfcomplete, weekend == "yes")
+weekday <- subset(dfcomplete, weekend == "no")
+
+summary(weekend)
+summary(weekday)
+```
+
+```{r plotweekend}
+tsweekend <- tapply(weekend$steps, weekend$interval, mean, na.rm=T)
+```
+
+```{r plotweekday}
+tsweekday <- tapply(weekday$steps, weekday$interval, mean, na.rm=T)
+```
+
+```{r plotboth}
+par(mfrow=2:1)
+plot(tsweekend ~ unique(weekend$interval), type="l", xlab = "5 min intervals")
+plot(tsweekday ~ unique(weekday$interval), type="l", xlab = "5 min intervals")
+```
